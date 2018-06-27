@@ -1,0 +1,189 @@
+线程池 RequestProcessorThreadPool ：单例（内部包含一个ExecutorService(10)）
+请求队列 RequestQueue ：单例（内部包含一个List<ArrayBlockingQueue<Request>> queues）
+
+
+
+在 RequestProcessorThreadPool 的构造中会循环10次
+	1。 new ArrayBlockingQueue<Request>(100)； 通过 RequestQueue.addQueue 方法添加 RequestQueue
+	中的 List<ArrayBlockingQueue<Request>> queues 中，也就是说每次循环向 RequestQueue 中的 List<ArrayBlockingQueue<Request>> queues
+	田间一个ArrayBlockingQueue(100),10次循环结束也就是RequestQueue（单例的）中也就一个10个ArrayBlockingQueue(10)
+	2. 每次循环生成的RequestQueue 再绑定到每个线程上，并提交进线程池
+
+最终的结果就是：
+单例的线程池（RequestProcessorThreadPool）中有10个线程；
+单例的请求队列（RequestQueue）中有1个 List<ArrayBlockingQueue<Request>> queues 包含10个queue；
+每个线程绑定一个RequestQueue中List<ArrayBlockingQueue<Request>> queues 中的一个queue；（即 每个线程对应一个队列）
+
+
+
+
+
+NIO
+NGINX
+KAFKA
+zookeeper
+storm
+linux
+CDH（hadoop·）
+Docker
+
+多线程
+mysql sql执行过程 复合索引 覆盖索引 存储过程/函数
+jdk8
+mycat
+springmvc 执行流程
+maven 本地中央仓库搭建
+支付接口怎么使用
+了解jenkins
+了解node.js weblogic httpd
+
+
+
+
+
+
+mysql 优化====================================================
+索引失效：
+	被建立索引的列，重复数据多；
+	索引列被用于范围查找；
+	like前置‘%’;
+	索引列在SQL执行的时候，被自动/手动进行了类型转换，比如贝莱是一个varchar的字段，赋值的时候没有加引号；
+	使用or条件查询即使有条件是带索引也会失效，解决办法，or的所有列都加上索引
+	复合索引，没有使用第一个列，（或则说叫做没有连续使用，在断开以后的所有索引都会失效）
+
+1、使用 expalin + 执行语句 
+	如果出现文件排序（file sort）必须优化
+
+2、show profiles
+	开启方式 首先需要确认mysql的版本是否支持 profiles
+	1、开启profile；set profiling=1;
+	2、执行一些sql语句
+	3、执行：show profiles; 会会查询出之前被执行的sql的一些信息记录，有ID号；
+	4、show profile for query 2; 2表示查询的参数号，可以查询不同的信息：IO、CPU等等
+		show profile cpu,block io for query 4;
+3、开启全局日志（生产中绝对不能使用）
+	1、开启全局日志：set global general_log=1;
+	2、设置文件输出位置到数据库的表中，默认是mysql库中的general_log表：set global log_output='table';
+	3、执行一些普通sql
+	4、查询全局日志：select * from mysql.general_log;
+
+	
+Mysql 表锁：myisam引擎（创建表的的时候设置引擎）
+		查看表是否被锁：show open tables；结果中的In_use字段为1表示表被锁住；
+		释放所有的表锁：unlock tables；
+		手动锁表：lock table 表名1 read（write）,表名2 read（write）,其他；
+			读锁；	如果在一个会话中对A表加了读锁，
+					1、那么该会话可以对A进行读，
+					但不能对A表进行写，
+					也不能对其他表进行读写，必须要先释放读锁，才可以进行额外的操作。
+					2、其他会话对被锁的表可以进行读操作，
+					但是写的时候，会被阻塞，提交不上去，直到该表的锁被解除，自动提交。
+					没有被锁的表，读写不会影响。
+					
+			写锁：如果一个绘画对A表加了写锁
+					1、该会话可以对A表进行读写
+						但是不能对其他表进行读写，也是需要先释放A表的锁。
+					2、其他会话对A表的读是被阻塞的，知道A表的写锁被释放，才会有结果出现。
+						其他会话对A表的写操作当然也是阻塞的。
+					
+			总结:读锁会阻塞写，但是不会阻塞读，而写锁则会把读写都阻塞。
+			
+		查看表锁情况：show status like "table%";
+		可以查询出两个值:
+			table_locks_waited: 产生表级锁定的次数
+			table_locks_immediate： 出现标记锁定争用而发生的等待次数（没等待一次加1），次值越高说明存在着严重的标记所争用的情况。
+
+
+
+行锁（InnoDB引擎），和表锁类似，只是表锁是锁表，而行锁更细化到了每一行记录上面
+		行锁恶化成表锁的情况：索引失效的情况会出现该状况
+			比如自动/手动的进行索引列的类型转换会出现行锁表表锁，
+			例如：test表有两个索引列：a（varchar），b（varchar）;
+			首先关闭自动提交
+			
+			A会话 update test set b='111' where a='222'; 
+			B会话 update test set a='333' where a='444'; 
+			这两个SQL这样写没有问题；
+			
+			但是如果这样写就会出现行所变表锁：
+			A会话 update test set b='111' where a=222; 
+			B会话 update test set a='333' where a='444';
+			因为第一个SQL中a=222,值没有加引号，导致执行的时候会出现自动类型转换，就出现了表锁，
+			导致B会话的sql会阻塞，需要等到A会话的Sql提交后才会执行。
+间隙锁（行锁的基础上）：
+		假入test表中的字段a 的值为（1，3，4，5，6，7，8注意没有2），
+		a,b都有对应的索引
+		关闭自动提交
+		当会话1中这样执行：update test set b="kkk" where a > 1 and a < 7; 先不提交
+		会话2中这样执行：insert into test values(2,'jjj');此时在会话1未提交之前会一直等待，这就是间隙锁
+		
+		定义：当我们用范围条件而不是相等条件进行检索数据，并请求共享或排它锁时候，Innodb会给符合条件的已有数据记录的
+				索引项加锁，对于键值在条件内但是并不存在的记录，叫做间隙（GA），Innodb也会对这个间隙加锁，就叫做间隙锁。
+
+
+		如何手动锁定一条数据：
+			begin;
+			select * from test where a='8' for update; //注意for update
+			commit;
+			
+			在该会话未commit之前，其他会话对于a='8'的这条数据的任何写操作都会被阻塞;
+			
+		查看行锁状态：show status like 'innodb_row_lock%'
+		结果中：
+		innodb_row_lock_cuurent_waits: 当前正在等待锁定的数量
+		innodb_row_lock—time:系统启动到现在锁定总时间的长度
+		innodb_row_lock_time_avg：每次等待所花费的平均时长
+		innodb_row_lock_lock_time_max:等待时间最长的一次
+		innodb_row_lock_waits：表示重系统启动到现在总共等待的次数
+		
+			
+linux：
+	管道符号‘|’: 将前面的一个命令输出结果作为后面命令的输入值
+		例如：head -11 profile | tail -1
+			将 profile的前11行输出作为tail -1的输入，最终结果是输出profile的第11行。
+	
+	输出到文件‘>’:将前一个命令的输出结果保存到文件中，如果文件不存在会自动创建，如果文件存在，会先清空文件
+		例如：sed ‘s#after#before#g’ profile > aa.txt
+			将profile中的所有的after替换成before 并输出到aa.txt中，profile自身文件不被替换
+			s:查找替换
+			#：分割符号
+			g:全部
+		sed -i ‘s#after#before#g’ profile  直接修改profile自己，输出为空	
+		
+	vi中替换字符串：   :s/before/after/g
+	
+	awk：也是字符串处理工具，last -n 5 | awk '{print $1}' 打印出最近5次登陆的用户的用户名
+							awk -F':' '/^bin/ {print $3}' /etc/shadow  获取shadow文件中以‘bin‘开头的那一行以‘:’分割的第三个字符串
+	
+	grep:同样是文档处理工具:$C='grep ^root /etc/shadow | cut -d: -f3'
+		首先获取shadow文件中的以root开头的那一行，然后获取该行以:分割（-d:）的第三行(-f3).
+	
+	
+	chmod：修改文件权限
+		chmod o+w 11.txt 给其他用户 添加对11.txt的写权限；o：其他用户 u:所属用户 g：所属用户组
+		
+	shell和脚本：开始第一行申明：#!/bin/bash
+			检查脚本是否有错：bash -n 文件名
+			DEBUG：bash  -x 文件名
+		shell脚本中定义变量TEMP=,赋值TEMP=$1,$1表示传给脚本的的第一个参数的值，
+		如果是使用已经定义好的变量需要在变量前面加$,echo $TEMP
+		
+	du -a /etc 查看/etc目录下所有的文件和目录以及子目录
+	du -a /etc | sort -nr | head -5 | tail -1   将etc下的所有文件、文件夹、子目录展示出来，并且以数字排序降序,获取到第5行
+	
+	ping -c1 192.168.0.1 -c1 只ping1次
+		
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
