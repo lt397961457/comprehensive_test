@@ -89,6 +89,13 @@ public class TestStreamApi3 {
                 .reduce(Integer::sum);
         System.out.println(result2);
     }
+    @Test
+    public void test43_2(){
+        Double result = employees.stream()
+                .map((e) -> e.getSalary() )
+                .reduce(0D, (e1,e2) -> e1 +e2);
+        System.out.println(result);
+    }
 
     /**
      * 收集

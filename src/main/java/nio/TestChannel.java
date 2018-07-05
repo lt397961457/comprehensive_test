@@ -55,8 +55,8 @@ public class TestChannel {
     //利用通道完成文件的复制
     @Test
     public void test1() throws IOException {
-        FileInputStream fileInputStream = new FileInputStream("C:\\Users\\admin\\Desktop\\1.txt");
-        FileOutputStream fileOutputStream = new FileOutputStream("C:\\Users\\admin\\Desktop\\2.txt");
+        FileInputStream fileInputStream = new FileInputStream("C:\\Users\\LiTao\\Desktop\\aaa.txt");
+        FileOutputStream fileOutputStream = new FileOutputStream("C:\\Users\\LiTao\\Desktop\\bbb.txt");
 
         //获取通道
         FileChannel inChannel = fileInputStream.getChannel();

@@ -12,7 +12,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * 一、方法引用： 若 lambda 体重的内容有方法已经实现了，我们可以使用‘方法引用’
+ * 一、方法引用： 若 lambda 体中的内容有方法已经实现了，我们可以使用‘方法引用’
  *      主要有三种语法格式：
  *      对象::实例方法名
  *      类::静态方法名

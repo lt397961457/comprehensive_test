@@ -27,7 +27,7 @@ public class TestTemporalAdjuster {
         System.out.println(ltd);
 
         LocalDateTime ldt2 = ltd.withDayOfMonth(10);
-        System.out.println(ltd);
+        System.out.println(ldt2);
 
         LocalDateTime ldt3 = ltd.with(TemporalAdjusters.next(DayOfWeek.MONDAY)); //相对于ltd的下一个周一
         System.out.println(ldt3);
